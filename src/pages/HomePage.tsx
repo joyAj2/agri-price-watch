@@ -47,7 +47,7 @@ const HomePage = () => {
             </h1>
             <p className="mb-8 text-lg text-primary-foreground/80 md:text-xl">
               Ghana's smartest agricultural price comparison platform. Real-time market prices, 
-              trend analysis, and SMS access — empowering farmers to earn more.
+              trend analysis, and SMS access  empowering farmers to earn more.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Button variant="hero" size="lg" asChild>
