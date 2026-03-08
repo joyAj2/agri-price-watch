@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ["Playfair Display", "serif"],
+        display: ["Fraunces", "serif"],
         body: ["DM Sans", "sans-serif"],
       },
       colors: {
@@ -51,10 +51,6 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        earth: {
-          DEFAULT: "hsl(var(--earth))",
-          foreground: "hsl(var(--earth-foreground))",
-        },
         harvest: {
           DEFAULT: "hsl(var(--harvest))",
           foreground: "hsl(var(--harvest-foreground))",
@@ -63,7 +59,11 @@ export default {
           DEFAULT: "hsl(var(--leaf))",
           light: "hsl(var(--leaf-light))",
         },
-        sky: "hsl(var(--sky))",
+        lime: "hsl(var(--lime))",
+        cream: {
+          DEFAULT: "hsl(var(--cream))",
+          dark: "hsl(var(--cream-dark))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
