@@ -1,13 +1,39 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, TrendingUp, TrendingDown, Phone, BarChart3, ShieldCheck, MapPin } from "lucide-react";
 import { useAllCrops, useAllMarkets, useLatestPrices } from "@/hooks/useSupabaseData";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 const HomePage = () => {
+  const queryClient = useQueryClient();
   const { data: crops = [] } = useAllCrops();
   const { data: markets = [] } = useAllMarkets();
   const { data: allPrices = [], isLoading: pricesLoading } = useLatestPrices();
+  const [realtimePulse, setRealtimePulse] = useState(false);
+
+  // Realtime subscription — auto-refresh prices when admin saves a new entry
+  useEffect(() => {
+    const channel = supabase
+      .channel("prices-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "prices" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["prices"] });
+          // Brief pulse animation to signal live update
+          setRealtimePulse(true);
+          setTimeout(() => setRealtimePulse(false), 1500);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const topPrices = allPrices.slice(0, 4);
 
