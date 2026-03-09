@@ -84,8 +84,13 @@ const HomePage = () => {
             <div className="hidden lg:block">
               <div className="rounded-2xl border bg-card/95 p-6 shadow-elevated backdrop-blur-sm">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-display text-lg font-bold">🔴 Live Prices</h3>
-                  <span className="text-xs text-muted-foreground">Updated just now</span>
+                  <h3 className="font-display text-lg font-bold flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full bg-destructive transition-all duration-300 ${realtimePulse ? "scale-150 opacity-100" : "animate-pulse opacity-80"}`} />
+                    Live Prices
+                  </h3>
+                  <span className={`text-xs transition-colors duration-500 ${realtimePulse ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                    {realtimePulse ? "⚡ Just updated!" : "Live from markets"}
+                  </span>
                 </div>
                 <div className="space-y-3">
                   {pricesLoading
