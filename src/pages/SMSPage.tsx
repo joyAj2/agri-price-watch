@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Terminal } from "lucide-react";
-import { crops, markets, getLatestPrices, getBestPrice } from "@/data/mockData";
+import { useAllCrops, useAllMarkets, useLatestPrices } from "@/hooks/useSupabaseData";
+import type { Crop, Market, PriceEntry } from "@/hooks/useSupabaseData";
 
 const quickExamples = [
   "PRICE MAIZE ACCRA",
@@ -19,7 +20,13 @@ const commandReference = [
   { command: "HELP", desc: "Show list of available commands", example: "HELP" },
 ];
 
-const parseSMSQuery = (query: string): string => {
+interface ParseData {
+  crops: Crop[];
+  markets: Market[];
+  latestPrices: PriceEntry[];
+}
+
+const parseSMSQuery = (query: string, { crops, markets, latestPrices }: ParseData): string => {
   const parts = query.trim().toUpperCase().split(/\s+/);
   const cmd = parts[0];
 
@@ -34,19 +41,22 @@ const parseSMSQuery = (query: string): string => {
     const market = markets.find(m => m.location.toUpperCase() === marketName);
     if (!crop) return `❌ Crop "${cropName}" not found. Available: ${crops.map(c => c.name).join(", ")}`;
     if (!market) return `❌ Market "${marketName}" not found. Available: ${markets.map(m => m.location).join(", ")}`;
-    const prices = getLatestPrices(crop.id, market.id);
-    const best = getBestPrice(crop.id);
+    const prices = latestPrices.filter(p => p.crop_id === crop.id && p.market_id === market.id);
     if (prices.length === 0) return `No price data found for ${crop.name} in ${market.location}.`;
-    return `${crop.name} in ${market.location}: GHS ${prices[0].price}/${crop.unit}.\nBest market today: ${markets.find(m => m.id === best?.marketId)?.location} GHS ${best?.price}.\n\nPowered by AgriPrice GH 🌾`;
+    const allCropPrices = latestPrices.filter(p => p.crop_id === crop.id);
+    const bestPrice = allCropPrices.length
+      ? allCropPrices.reduce((b, p) => (Number(p.price) > Number(b.price) ? p : b), allCropPrices[0])
+      : null;
+    return `${crop.name} in ${market.location}: GHS ${prices[0].price}/${crop.unit}.\nBest market today: ${markets.find(m => m.id === bestPrice?.market_id)?.location} GHS ${bestPrice?.price}.\n\nPowered by AgriPrice GH 🌾`;
   }
 
   if (cmd === "COMPARE" && parts.length >= 2) {
     const cropName = parts[1];
     const crop = crops.find(c => c.name.toUpperCase() === cropName);
     if (!crop) return `❌ Crop "${cropName}" not found. Available: ${crops.map(c => c.name).join(", ")}`;
-    const prices = getLatestPrices(crop.id);
+    const cropPrices = latestPrices.filter(p => p.crop_id === crop.id);
     const lines = markets.map(m => {
-      const p = prices.find(pr => pr.marketId === m.id);
+      const p = cropPrices.find(pr => pr.market_id === m.id);
       return `• ${m.location}: GHS ${p?.price ?? "N/A"}`;
     });
     return `${crop.name} prices:\n${lines.join("\n")}\n\nPowered by AgriPrice GH 🌾`;
@@ -56,9 +66,10 @@ const parseSMSQuery = (query: string): string => {
     const cropName = parts[1];
     const crop = crops.find(c => c.name.toUpperCase() === cropName);
     if (!crop) return `❌ Crop "${cropName}" not found.`;
-    const best = getBestPrice(crop.id);
-    if (!best) return `No price data for ${crop.name}.`;
-    return `Best price for ${crop.name}: GHS ${best.price}/${crop.unit} at ${markets.find(m => m.id === best.marketId)?.location}.\n\nPowered by AgriPrice GH 🌾`;
+    const cropPrices = latestPrices.filter(p => p.crop_id === crop.id);
+    if (!cropPrices.length) return `No price data for ${crop.name}.`;
+    const best = cropPrices.reduce((b, p) => (Number(p.price) > Number(b.price) ? p : b), cropPrices[0]);
+    return `Best price for ${crop.name}: GHS ${best.price}/${crop.unit} at ${markets.find(m => m.id === best.market_id)?.location}.\n\nPowered by AgriPrice GH 🌾`;
   }
 
   return `❌ Invalid command. Send HELP for a list of commands.`;
@@ -68,15 +79,19 @@ const SMSPage = () => {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState("");
 
-  const handleSend = () => {
-    if (!query.trim()) return;
-    setResponse(parseSMSQuery(query));
+  const { data: crops = [] } = useAllCrops();
+  const { data: markets = [] } = useAllMarkets();
+  const { data: latestPrices = [] } = useLatestPrices();
+
+  const handleSend = (q = query) => {
+    if (!q.trim()) return;
+    const result = parseSMSQuery(q, { crops, markets, latestPrices });
+    setResponse(result);
   };
 
   return (
     <div className="min-h-screen py-8">
       <div className="container max-w-3xl">
-        {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="mb-2 font-display text-3xl font-bold md:text-4xl">📱 SMS Price Query</h1>
           <p className="text-muted-foreground">
@@ -91,7 +106,7 @@ const SMSPage = () => {
             {quickExamples.map(ex => (
               <button
                 key={ex}
-                onClick={() => { setQuery(ex); setResponse(parseSMSQuery(ex)); }}
+                onClick={() => { setQuery(ex); handleSend(ex); }}
                 className="rounded-full border bg-card px-3 py-1.5 text-sm font-mono font-medium transition-all hover:border-primary hover:bg-primary/5 btn-hover"
               >
                 {ex}
@@ -109,7 +124,7 @@ const SMSPage = () => {
             placeholder="PRICE MAIZE ACCRA"
             className="font-mono text-base"
           />
-          <Button onClick={handleSend} className="btn-hover gap-2">
+          <Button onClick={() => handleSend()} className="btn-hover gap-2">
             <Send className="h-4 w-4" /> Send
           </Button>
         </div>

@@ -1,32 +1,49 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { crops, markets, getPriceTrend, getLatestPrices, getMarketName } from "@/data/mockData";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAllCrops, useAllMarkets, usePriceTrend, useLatestPrices } from "@/hooks/useSupabaseData";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Legend,
+} from "recharts";
+
+const marketColors = ["hsl(110 58% 30%)", "hsl(95 52% 53%)", "hsl(42 85% 55%)", "hsl(0 72% 51%)"];
 
 const DashboardPage = () => {
-  const [selectedCrop, setSelectedCrop] = useState("1");
-  const trendData = getPriceTrend(selectedCrop);
+  const { data: crops = [] } = useAllCrops();
+  const { data: markets = [] } = useAllMarkets();
+  const [selectedCrop, setSelectedCrop] = useState<string>("");
 
+  useEffect(() => {
+    if (crops.length > 0 && !selectedCrop) {
+      setSelectedCrop(crops[0].id);
+    }
+  }, [crops, selectedCrop]);
+
+  const { data: trendData = [] } = usePriceTrend(selectedCrop || undefined);
+  const { data: latestPrices = [] } = useLatestPrices();
+
+  // Build line chart data keyed by date
   const dateMap = new Map<string, Record<string, number>>();
   for (const p of trendData) {
-    const marketName = getMarketName(p.marketId);
+    const marketName = markets.find(m => m.id === p.market_id)?.name ?? p.market_id;
     if (!dateMap.has(p.date)) dateMap.set(p.date, {});
-    dateMap.get(p.date)![marketName] = p.price;
+    dateMap.get(p.date)![marketName] = Number(p.price);
   }
   const lineData = Array.from(dateMap.entries()).map(([date, prices]) => ({
     date: date.slice(0, 7),
     ...prices,
   }));
 
-  const latestPrices = getLatestPrices();
+  // Bar chart: average price per crop
   const cropAvgs = crops.map(c => {
-    const cropPrices = latestPrices.filter(p => p.cropId === c.id);
-    const avg = cropPrices.length ? Math.round(cropPrices.reduce((s, p) => s + p.price, 0) / cropPrices.length) : 0;
+    const cropPrices = latestPrices.filter(p => p.crop_id === c.id);
+    const avg = cropPrices.length
+      ? Math.round(cropPrices.reduce((s, p) => s + Number(p.price), 0) / cropPrices.length)
+      : 0;
     return { crop: `${c.emoji} ${c.name}`, avg };
   });
-
-  const marketColors = ["hsl(110 58% 30%)", "hsl(95 52% 53%)", "hsl(42 85% 55%)", "hsl(0 72% 51%)"];
 
   return (
     <div className="min-h-screen py-8">
@@ -40,42 +57,66 @@ const DashboardPage = () => {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="font-display">Price Trend</CardTitle>
               <Select value={selectedCrop} onValueChange={setSelectedCrop}>
-                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Select crop" />
+                </SelectTrigger>
                 <SelectContent>
-                  {crops.map(c => (<SelectItem key={c.id} value={c.id}>{c.emoji} {c.name}</SelectItem>))}
+                  {crops.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.emoji} {c.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </CardHeader>
             <CardContent>
               <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={lineData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(37 15% 82%)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend />
-                    {markets.map((m, i) => (
-                      <Line key={m.id} type="monotone" dataKey={m.name} stroke={marketColors[i]} strokeWidth={2} dot={{ r: 3 }} />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
+                {lineData.length === 0 ? (
+                  <Skeleton className="h-full w-full rounded-lg" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={lineData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(37 15% 82%)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend />
+                      {markets.map((m, i) => (
+                        <Line
+                          key={m.id}
+                          type="monotone"
+                          dataKey={m.name}
+                          stroke={marketColors[i % marketColors.length]}
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
+
           <Card className="shadow-card">
-            <CardHeader><CardTitle className="font-display">Average Prices by Crop</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="font-display">Average Prices by Crop</CardTitle>
+            </CardHeader>
             <CardContent>
               <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={cropAvgs}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(37 15% 82%)" />
-                    <XAxis dataKey="crop" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: number) => [`GHS ${value}`, "Avg Price"]} />
-                    <Bar dataKey="avg" fill="hsl(110 58% 30%)" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {cropAvgs.length === 0 ? (
+                  <Skeleton className="h-full w-full rounded-lg" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={cropAvgs}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(37 15% 82%)" />
+                      <XAxis dataKey="crop" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value: number) => [`GHS ${value}`, "Avg Price"]} />
+                      <Bar dataKey="avg" fill="hsl(110 58% 30%)" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
