@@ -1,26 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Star, TrendingUp, TrendingDown } from "lucide-react";
-import { crops, markets, getLatestPrices, getBestPrice, getCrop } from "@/data/mockData";
+import { useAllCrops, useAllMarkets, useLatestPrices } from "@/hooks/useSupabaseData";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const ComparePage = () => {
   const [searchParams] = useSearchParams();
-  const initialCrop = searchParams.get("crop") || "1";
-  const [selectedCropId, setSelectedCropId] = useState(initialCrop);
+  const urlCropId = searchParams.get("crop") || "";
 
-  const crop = getCrop(selectedCropId);
-  const latestPrices = getLatestPrices(selectedCropId);
-  const best = getBestPrice(selectedCropId);
+  const { data: crops = [] } = useAllCrops();
+  const { data: markets = [] } = useAllMarkets();
+
+  const [selectedCropId, setSelectedCropId] = useState(urlCropId);
+
+  // Once crops load, ensure selectedCropId is a valid UUID
+  useEffect(() => {
+    if (crops.length === 0) return;
+    const valid = crops.map(c => c.id);
+    if (!valid.includes(selectedCropId)) {
+      setSelectedCropId(crops[0].id);
+    }
+  }, [crops, selectedCropId]);
+
+  const { data: latestPrices = [], isLoading } = useLatestPrices(selectedCropId || undefined);
+
+  const crop = crops.find(c => c.id === selectedCropId);
+  const best = latestPrices.length
+    ? latestPrices.reduce((b, p) => (Number(p.price) > Number(b.price) ? p : b), latestPrices[0])
+    : null;
 
   const chartData = markets.map(m => {
-    const price = latestPrices.find(p => p.marketId === m.id);
-    return {
-      market: m.location,
-      price: price?.price ?? 0,
-      isBest: price?.id === best?.id,
-    };
+    const price = latestPrices.find(p => p.market_id === m.id);
+    return { market: m.location, price: Number(price?.price ?? 0), isBest: price?.id === best?.id };
   });
 
   return (
@@ -38,7 +50,7 @@ const ComparePage = () => {
                   : "border-border bg-card hover:border-primary/50"
               }`}
             >
-              <img src={c.imageUrl} alt={c.name} className="h-6 w-6 rounded-full object-cover" />
+              <img src={c.image_url} alt={c.name} className="h-6 w-6 rounded-full object-cover" />
               {c.name}
             </button>
           ))}
@@ -48,7 +60,7 @@ const ComparePage = () => {
         {crop && (
           <div className="relative mb-8 overflow-hidden rounded-2xl">
             <div className="h-48 md:h-64">
-              <img src={crop.imageUrl} alt={crop.name} className="h-full w-full object-cover" />
+              <img src={crop.image_url} alt={crop.name} className="h-full w-full object-cover" />
             </div>
             <div className="absolute inset-0 bg-gradient-to-r from-foreground/80 to-foreground/20" />
             <div className="absolute bottom-0 left-0 p-6">
@@ -58,7 +70,9 @@ const ComparePage = () => {
               <p className="text-sm text-primary-foreground/70">{crop.description}</p>
               {best && (
                 <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-primary-foreground/20 px-4 py-1.5 text-sm font-bold text-primary-foreground backdrop-blur-sm">
-                  <Star className="h-4 w-4 text-harvest" /> Best: GHS {best.price}/{crop.unit} at {markets.find(m => m.id === best.marketId)?.location}
+                  <Star className="h-4 w-4 text-harvest" />
+                  Best: GHS {best.price}/{crop.unit} at{" "}
+                  {markets.find(m => m.id === best.market_id)?.location}
                 </div>
               )}
             </div>
@@ -67,42 +81,58 @@ const ComparePage = () => {
 
         {/* Market Price Cards */}
         <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {markets.map(market => {
-            const price = latestPrices.find(p => p.marketId === market.id);
-            const isBest = price?.id === best?.id;
-            return (
-              <div
-                key={market.id}
-                className={`rounded-xl border p-5 shadow-card card-hover ${
-                  isBest ? "gradient-lime text-primary-foreground border-0" : "bg-card"
-                }`}
-              >
-                {isBest && (
-                  <div className="mb-3 inline-flex items-center gap-1 rounded-full bg-primary-foreground/20 px-3 py-1 text-xs font-bold">
-                    <Star className="h-3 w-3" /> BEST PRICE
+          {isLoading || markets.length === 0
+            ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)
+            : markets.map(market => {
+                const price = latestPrices.find(p => p.market_id === market.id);
+                const isBest = price?.id === best?.id;
+                return (
+                  <div
+                    key={market.id}
+                    className={`rounded-xl border p-5 shadow-card card-hover ${
+                      isBest ? "gradient-lime text-primary-foreground border-0" : "bg-card"
+                    }`}
+                  >
+                    {isBest && (
+                      <div className="mb-3 inline-flex items-center gap-1 rounded-full bg-primary-foreground/20 px-3 py-1 text-xs font-bold">
+                        <Star className="h-3 w-3" /> BEST PRICE
+                      </div>
+                    )}
+                    <h3 className={`font-display text-lg font-bold ${isBest ? "" : "text-foreground"}`}>
+                      {market.location}
+                    </h3>
+                    <p className={`text-xs ${isBest ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                      {market.name}
+                    </p>
+                    <div className={`mt-3 font-display text-3xl font-bold ${isBest ? "" : "text-primary"}`}>
+                      GHS {price?.price ?? "—"}
+                    </div>
+                    <div className={`text-xs ${isBest ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                      per {crop?.unit}
+                    </div>
+                    {price && (
+                      <div
+                        className={`mt-2 flex items-center gap-1 text-xs font-medium ${
+                          isBest
+                            ? "text-primary-foreground/80"
+                            : price.trend === "up"
+                            ? "text-primary"
+                            : price.trend === "down"
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {price.trend === "up" ? (
+                          <TrendingUp className="h-3 w-3" />
+                        ) : price.trend === "down" ? (
+                          <TrendingDown className="h-3 w-3" />
+                        ) : null}
+                        {Number(price.change_percent)}% vs last month
+                      </div>
+                    )}
                   </div>
-                )}
-                <h3 className={`font-display text-lg font-bold ${isBest ? "" : "text-foreground"}`}>{market.location}</h3>
-                <p className={`text-xs ${isBest ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{market.name}</p>
-                <div className={`mt-3 font-display text-3xl font-bold ${isBest ? "" : "text-primary"}`}>
-                  GHS {price?.price ?? "—"}
-                </div>
-                <div className={`text-xs ${isBest ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                  per {crop?.unit}
-                </div>
-                {price && (
-                  <div className={`mt-2 flex items-center gap-1 text-xs font-medium ${
-                    isBest
-                      ? "text-primary-foreground/80"
-                      : price.trend === "up" ? "text-primary" : price.trend === "down" ? "text-destructive" : "text-muted-foreground"
-                  }`}>
-                    {price.trend === "up" ? <TrendingUp className="h-3 w-3" /> : price.trend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
-                    {price.changePercent}% vs last month
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
         </div>
 
         {/* Bar Chart */}
@@ -115,11 +145,7 @@ const ComparePage = () => {
                 <XAxis dataKey="market" tick={{ fontFamily: "DM Sans", fontSize: 12 }} />
                 <YAxis tick={{ fontFamily: "DM Sans", fontSize: 12 }} />
                 <Tooltip
-                  contentStyle={{
-                    borderRadius: "0.75rem",
-                    border: "1px solid hsl(37 15% 82%)",
-                    fontFamily: "DM Sans",
-                  }}
+                  contentStyle={{ borderRadius: "0.75rem", border: "1px solid hsl(37 15% 82%)", fontFamily: "DM Sans" }}
                   formatter={(value: number) => [`GHS ${value}`, "Price"]}
                 />
                 <Bar dataKey="price" radius={[8, 8, 0, 0]}>

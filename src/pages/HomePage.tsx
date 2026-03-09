@@ -1,10 +1,21 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, TrendingUp, TrendingDown, Phone, BarChart3, ShieldCheck, Users, MapPin } from "lucide-react";
-import { crops, markets, getLatestPrices, getCropName, getMarketName, getBestPrice } from "@/data/mockData";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowRight, TrendingUp, TrendingDown, Phone, BarChart3, ShieldCheck, MapPin } from "lucide-react";
+import { useAllCrops, useAllMarkets, useLatestPrices } from "@/hooks/useSupabaseData";
 
 const HomePage = () => {
-  const topPrices = getLatestPrices().slice(0, 4);
+  const { data: crops = [] } = useAllCrops();
+  const { data: markets = [] } = useAllMarkets();
+  const { data: allPrices = [], isLoading: pricesLoading } = useLatestPrices();
+
+  const topPrices = allPrices.slice(0, 4);
+
+  const getBestPrice = (cropId: string) => {
+    const cropPrices = allPrices.filter(p => p.crop_id === cropId);
+    if (!cropPrices.length) return null;
+    return cropPrices.reduce((best, p) => (p.price > best.price ? p : best), cropPrices[0]);
+  };
 
   return (
     <div className="flex flex-col">
@@ -51,27 +62,30 @@ const HomePage = () => {
                   <span className="text-xs text-muted-foreground">Updated just now</span>
                 </div>
                 <div className="space-y-3">
-                  {topPrices.map(p => {
-                    const crop = crops.find(c => c.id === p.cropId);
-                    return (
-                      <div key={p.id} className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{crop?.emoji}</span>
-                          <div>
-                            <div className="font-semibold text-sm">{crop?.name}</div>
-                            <div className="text-xs text-muted-foreground">{getMarketName(p.marketId)}</div>
+                  {pricesLoading
+                    ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)
+                    : topPrices.map(p => {
+                        const crop = crops.find(c => c.id === p.crop_id);
+                        const market = markets.find(m => m.id === p.market_id);
+                        return (
+                          <div key={p.id} className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-2xl">{crop?.emoji}</span>
+                              <div>
+                                <div className="font-semibold text-sm">{crop?.name}</div>
+                                <div className="text-xs text-muted-foreground">{market?.name}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-display font-bold text-primary">GHS {p.price}</div>
+                              <div className={`flex items-center gap-0.5 text-xs ${p.trend === "up" ? "text-primary" : p.trend === "down" ? "text-destructive" : "text-muted-foreground"}`}>
+                                {p.trend === "up" ? <TrendingUp className="h-3 w-3" /> : p.trend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
+                                {Number(p.change_percent)}%
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-display font-bold text-primary">GHS {p.price}</div>
-                          <div className={`flex items-center gap-0.5 text-xs ${p.trend === "up" ? "text-primary" : p.trend === "down" ? "text-destructive" : "text-muted-foreground"}`}>
-                            {p.trend === "up" ? <TrendingUp className="h-3 w-3" /> : p.trend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
-                            {p.changePercent}%
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
                 </div>
               </div>
             </div>
@@ -84,8 +98,8 @@ const HomePage = () => {
         <div className="container">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
-              { icon: MapPin, value: String(markets.length), label: "Markets Tracked", color: "text-primary" },
-              { icon: BarChart3, value: String(crops.length), label: "Crops Monitored", color: "text-primary" },
+              { icon: MapPin, value: String(markets.length || "—"), label: "Markets Tracked", color: "text-primary" },
+              { icon: BarChart3, value: String(crops.length || "—"), label: "Crops Monitored", color: "text-primary" },
               { icon: Phone, value: "Free", label: "SMS & USSD", color: "text-lime" },
               { icon: ShieldCheck, value: "65%", label: "Middlemen Cut", color: "text-destructive" },
             ].map((s, i) => (
@@ -107,44 +121,46 @@ const HomePage = () => {
             <p className="text-muted-foreground">Real-time crop prices across Ghana's biggest markets</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {crops.slice(0, 8).map(crop => {
-              const best = getBestPrice(crop.id);
-              const latestPrices = getLatestPrices(crop.id);
-              const avgTrend = latestPrices[0]?.trend ?? "stable";
-              return (
-                <div key={crop.id} className="group overflow-hidden rounded-xl border bg-card shadow-card card-hover">
-                  <div className="relative h-40 overflow-hidden">
-                    <img
-                      src={crop.imageUrl}
-                      alt={crop.name}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      loading="lazy"
-                    />
-                    <div className={`absolute right-2 top-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
-                      avgTrend === "up" ? "bg-primary text-primary-foreground" : avgTrend === "down" ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground"
-                    }`}>
-                      {avgTrend === "up" ? <TrendingUp className="h-3 w-3" /> : avgTrend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
-                      {latestPrices[0]?.changePercent ?? 0}%
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <div className="mb-1 text-xs text-muted-foreground">{crop.category}</div>
-                    <h3 className="mb-1 font-display text-lg font-bold">{crop.name}</h3>
-                    <p className="mb-3 text-xs text-muted-foreground line-clamp-2">{crop.description}</p>
-                    <div className="flex items-end justify-between">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Best Price</div>
-                        <div className="font-display text-xl font-bold text-primary">GHS {best?.price ?? "—"}</div>
-                        <div className="text-xs text-muted-foreground">per {crop.unit}</div>
+            {crops.length === 0
+              ? Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-64 w-full rounded-xl" />)
+              : crops.map(crop => {
+                  const best = getBestPrice(crop.id);
+                  const cropPrices = allPrices.filter(p => p.crop_id === crop.id);
+                  const avgTrend = cropPrices[0]?.trend ?? "stable";
+                  return (
+                    <div key={crop.id} className="group overflow-hidden rounded-xl border bg-card shadow-card card-hover">
+                      <div className="relative h-40 overflow-hidden">
+                        <img
+                          src={crop.image_url}
+                          alt={crop.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          loading="lazy"
+                        />
+                        <div className={`absolute right-2 top-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
+                          avgTrend === "up" ? "bg-primary text-primary-foreground" : avgTrend === "down" ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground"
+                        }`}>
+                          {avgTrend === "up" ? <TrendingUp className="h-3 w-3" /> : avgTrend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
+                          {Number(cropPrices[0]?.change_percent ?? 0)}%
+                        </div>
                       </div>
-                      <Button size="sm" variant="outline" asChild className="btn-hover">
-                        <Link to={`/compare?crop=${crop.id}`}>Compare</Link>
-                      </Button>
+                      <div className="p-4">
+                        <div className="mb-1 text-xs text-muted-foreground">{crop.category}</div>
+                        <h3 className="mb-1 font-display text-lg font-bold">{crop.name}</h3>
+                        <p className="mb-3 text-xs text-muted-foreground line-clamp-2">{crop.description}</p>
+                        <div className="flex items-end justify-between">
+                          <div>
+                            <div className="text-xs text-muted-foreground">Best Price</div>
+                            <div className="font-display text-xl font-bold text-primary">GHS {best?.price ?? "—"}</div>
+                            <div className="text-xs text-muted-foreground">per {crop.unit}</div>
+                          </div>
+                          <Button size="sm" variant="outline" asChild className="btn-hover">
+                            <Link to={`/compare?crop=${crop.id}`}>Compare</Link>
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
           </div>
         </div>
       </section>
@@ -154,15 +170,13 @@ const HomePage = () => {
         <div className="container">
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div>
-              <h2 className="mb-8 font-display text-3xl font-bold md:text-4xl">
-                3 Ways to Get Prices
-              </h2>
+              <h2 className="mb-8 font-display text-3xl font-bold md:text-4xl">3 Ways to Get Prices</h2>
               <div className="space-y-6">
                 {[
                   { step: "1", title: "🌐 Web Platform", desc: "Browse prices, compare markets, and track trends online from any device." },
                   { step: "2", title: "📱 SMS Query", desc: "Text PRICE MAIZE ACCRA to 1234 — get instant reply with latest prices." },
                   { step: "3", title: "📞 USSD Menu", desc: "Dial *384# — navigate the menu to check any crop price. No internet needed." },
-                ].map((item) => (
+                ].map(item => (
                   <div key={item.step} className="flex gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 font-display text-lg font-bold">
                       {item.step}
@@ -202,27 +216,25 @@ const HomePage = () => {
             <p className="text-muted-foreground">Explore prices from Ghana's major market regions</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {markets.map(market => (
-              <Link
-                key={market.id}
-                to={`/prices?market=${market.id}`}
-                className="group relative overflow-hidden rounded-xl card-hover"
-              >
-                <div className="aspect-[4/3]">
-                  <img
-                    src={market.imageUrl}
-                    alt={market.name}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 to-transparent" />
-                <div className="absolute bottom-0 left-0 p-4">
-                  <h3 className="font-display text-xl font-bold text-primary-foreground">{market.location}</h3>
-                  <p className="text-sm text-primary-foreground/70">{market.name}</p>
-                </div>
-              </Link>
-            ))}
+            {markets.length === 0
+              ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-[4/3] w-full rounded-xl" />)
+              : markets.map(market => (
+                  <Link key={market.id} to={`/prices?market=${market.id}`} className="group relative overflow-hidden rounded-xl card-hover">
+                    <div className="aspect-[4/3]">
+                      <img
+                        src={market.image_url}
+                        alt={market.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 to-transparent" />
+                    <div className="absolute bottom-0 left-0 p-4">
+                      <h3 className="font-display text-xl font-bold text-primary-foreground">{market.location}</h3>
+                      <p className="text-sm text-primary-foreground/70">{market.name}</p>
+                    </div>
+                  </Link>
+                ))}
           </div>
         </div>
       </section>
