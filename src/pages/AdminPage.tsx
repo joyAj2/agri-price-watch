@@ -87,10 +87,31 @@ const AdminPage = () => {
         trend: "stable",
         change_percent: 0,
       });
+
       toast({
-        title: "Price saved!",
-        description: `${crop?.name} in ${market?.name}: GHS ${priceValue}`,
+        title: "✅ Price saved!",
+        description: `${crop?.name} in ${market?.name}: GHS ${priceValue} — Homepage updated live.`,
       });
+
+      // Trigger Africa's Talking SMS alert (non-blocking)
+      supabase.functions.invoke("send-sms-alert", {
+        body: {
+          cropName: crop?.name ?? "",
+          marketName: market?.name ?? "",
+          price: parseFloat(priceValue),
+          unit: crop?.unit ?? "",
+          // No `to` field = preview/sandbox mode until AT_API_KEY is configured
+        },
+      }).then(({ data, error }) => {
+        if (error) {
+          console.warn("SMS alert skipped:", error.message);
+        } else if (data?.mode === "preview") {
+          console.info("SMS preview:", data.message);
+        } else {
+          toast({ title: "📱 SMS alert sent!", description: "Farmers subscribed to this crop have been notified." });
+        }
+      });
+
       setPriceCrop(""); setPriceMarket(""); setPriceValue("");
     } catch (err: unknown) {
       toast({

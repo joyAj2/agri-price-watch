@@ -1,13 +1,39 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, TrendingUp, TrendingDown, Phone, BarChart3, ShieldCheck, MapPin } from "lucide-react";
 import { useAllCrops, useAllMarkets, useLatestPrices } from "@/hooks/useSupabaseData";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 const HomePage = () => {
+  const queryClient = useQueryClient();
   const { data: crops = [] } = useAllCrops();
   const { data: markets = [] } = useAllMarkets();
   const { data: allPrices = [], isLoading: pricesLoading } = useLatestPrices();
+  const [realtimePulse, setRealtimePulse] = useState(false);
+
+  // Realtime subscription — auto-refresh prices when admin saves a new entry
+  useEffect(() => {
+    const channel = supabase
+      .channel("prices-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "prices" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["prices"] });
+          // Brief pulse animation to signal live update
+          setRealtimePulse(true);
+          setTimeout(() => setRealtimePulse(false), 1500);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const topPrices = allPrices.slice(0, 4);
 
@@ -58,8 +84,13 @@ const HomePage = () => {
             <div className="hidden lg:block">
               <div className="rounded-2xl border bg-card/95 p-6 shadow-elevated backdrop-blur-sm">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-display text-lg font-bold">🔴 Live Prices</h3>
-                  <span className="text-xs text-muted-foreground">Updated just now</span>
+                  <h3 className="font-display text-lg font-bold flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full bg-destructive transition-all duration-300 ${realtimePulse ? "scale-150 opacity-100" : "animate-pulse opacity-80"}`} />
+                    Live Prices
+                  </h3>
+                  <span className={`text-xs transition-colors duration-500 ${realtimePulse ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                    {realtimePulse ? "⚡ Just updated!" : "Live from markets"}
+                  </span>
                 </div>
                 <div className="space-y-3">
                   {pricesLoading
