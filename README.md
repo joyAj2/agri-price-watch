@@ -1,73 +1,125 @@
-# Welcome to your Lovable project
+# Project Name
 
-## Project info
+A modern web application built with React, TypeScript, Vite and Tailwind CSS.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Overview
 
-## How can I edit this code?
+This project is a web application developed using modern frontend technologies, with a focus on responsive design, maintainable code and a smooth user experience.
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+The application is built using:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- **React** – Component-based user interface development.
+- **TypeScript** – Type-safe JavaScript development.
+- **Vite** – Fast development server and build tooling.
+- **Tailwind CSS** – Utility-first styling.
+- **shadcn/ui** – Reusable and accessible UI components.
 
-Changes made via Lovable will be committed automatically to this repo.
+## Features
 
-**Use your preferred IDE**
+- Responsive user interface.
+- Reusable React components.
+- Modern styling with Tailwind CSS.
+- Type-safe development with TypeScript.
+- Fast development and build environment using Vite.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+*Update this section to reflect the actual features implemented in your application.*
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Getting Started
 
-Follow these steps:
+Follow these instructions to run the project locally.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Prerequisites
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Ensure you have the following installed:
 
-# Step 3: Install the necessary dependencies.
-npm i
+- Node.js
+- npm
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone YOUR_GITHUB_REPOSITORY_URL
+```
+
+2. Navigate into the project directory:
+
+```bash
+cd YOUR_PROJECT_DIRECTORY
+```
+
+3. Install dependencies:
+
+```bash
+npm install
+```
+
+4. Start the development server:
+
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+5. Open the local URL displayed in your terminal.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Available Scripts
 
-**Use GitHub Codespaces**
+| Command | Description |
+|---|---|
+| `npm run dev` | Starts the development server |
+| `npm run build` | Builds the application for production |
+| `npm run preview` | Previews the production build |
+| `npm run lint` | Runs the configured linting checks |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+*These scripts depend on the commands configured in package.json.*
 
-## What technologies are used for this project?
+## Project Structure
 
-This project is built with:
+```text
+project/
+├── public/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   ├── assets/
+│   └── ...
+├── index.html
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Deployment
 
-## How can I deploy this project?
+The application can be deployed using platforms that support modern frontend applications, such as:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- Vercel
+- Netlify
+- Lovable
 
-## Can I connect a custom domain to my Lovable project?
+For production builds, run:
 
-Yes, you can!
+```bash
+npm run build
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Development
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This project was initially developed using Lovable and can also be maintained through a local development environment.
+
+Changes pushed to the connected GitHub repository can be synchronised with Lovable.
+
+## Author
+
+**Joy Ejeh**
+
+- GitHub: [@joyAj2](https://github.com/joyAj2)
+- LinkedIn: [Joy Ejeh](https://www.linkedin.com/in/joy-ejeh-4015372b6)
+- Portfolio: [Personal Portfolio](https://joy-ejeh-ave-portfolio.vercel.app/)
+
+---
+
+*Built with modern web technologies and a commitment to continuous learning and improvement.*
